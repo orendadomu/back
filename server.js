@@ -13,7 +13,7 @@ const axios = require("axios")
 require('dotenv').config()
 
 
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 3001
 // const db = `mongodb+srv://${process.env.MONGO_USERNAME}:${process.env.MONGO_PASS}@${process.env.MONGO_URL}`
 
 const app = express();
