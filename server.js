@@ -146,6 +146,10 @@ app.get("/api/getCalendarEvents", async (req, res) => {
     }
 });
 
+setInterval(() => {
+    getCalendarEvents().catch(() => { });
+}, 10 * 60 * 1000);
+
 const expressServer = app.listen(PORT, (error) => {
     error ? error : console.log(`listening port ${PORT}`)
 })
