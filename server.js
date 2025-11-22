@@ -36,6 +36,36 @@ let cache = {
 };
 const TTL_MS = 1000 * 60 * 3; // 3 минуты
 
+const EXTRA_BLOCK_RANGES = [
+    { month: 9, startDay: 9, endDay: 11 },
+    { month: 9, startDay: 17, endDay: 17 },
+    { month: 9, startDay: 19, endDay: 20 },
+    { month: 9, startDay: 25, endDay: 25 },
+    { month: 9, startDay: 27, endDay: 31 },
+    { month: 10, startDay: 2, endDay: 3 },
+    { month: 10, startDay: 6, endDay: 13 },
+    { month: 10, startDay: 14, endDay: 19 },
+];
+
+// Генерация событий из ручных диапазонов
+function buildManualEvents() {
+    const now = new Date();
+    const year = now.getFullYear(); // "этого года"
+
+    return EXTRA_BLOCK_RANGES.map((r, idx) => {
+        const start = new Date(Date.UTC(year, r.month, r.startDay, 0, 0, 0));
+        const end = new Date(Date.UTC(year, r.month, r.endDay, 0, 0, 0));
+
+        return {
+            uid: `manual-${year}-${idx}`,
+            start,
+            end,
+            summary: "Manual block",
+        };
+    });
+}
+
+
 async function fetchIcs({ useValidators = true } = {}) {
     const headers = {
         "Accept": "text/calendar, text/plain; q=0.9, */*; q=0.8",
@@ -95,6 +125,7 @@ async function getCalendarEvents() {
             if (data.status !== 304) {
                 const parsedIcs = ical.parseICS(data.body);
                 const events = [];
+
                 for (const k in parsedIcs) {
                     const ev = parsedIcs[k];
                     if (ev?.type === "VEVENT") {
@@ -106,11 +137,20 @@ async function getCalendarEvents() {
                         });
                     }
                 }
+
+                const manualEvents = buildManualEvents();
+
+                // Просто склеиваем и сортируем по времени начала
+                const mergedEvents = [...events, ...manualEvents].sort(
+                    (a, b) => a.start - b.start
+                );
+
                 cache = {
                     ...cache,
                     etag: data.etag,
                     lastModified: data.lastModified,
-                    parsed: events,
+                    // parsed: events,
+                    parsed: mergedEvents,
                     raw: data.body,
                     expiresAt: now + TTL_MS,
                     inFlight: null,
@@ -145,6 +185,35 @@ app.get("/api/getCalendarEvents", async (req, res) => {
         console.log("getCalendarEvents total_ms=", Number(t1 - t0) / 1e6);
     }
 });
+
+// app.post("/api/send-phone", async (req, res) => {
+//     try {
+//         const { phone, extra = "" } = req.body || {};
+//         const normalized = String(phone || "").replace(/[^\d+]/g, "");
+//         if (!/^\+?\d{10,15}$/.test(normalized)) {
+//             return res.status(400).json({ ok: false, error: "Invalid phone format" });
+//         }
+
+//         const text = [
+//             "📲 Новая заявка с сайта",
+//             `• Телефон: ${normalized}`,
+//             extra ? `• Комментарий: ${String(extra).slice(0, 500)}` : "",
+//             `• Время: ${new Date().toISOString()}`
+//         ].filter(Boolean).join("\n");
+
+//         const r = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+//             method: "POST",
+//             headers: { "Content-Type": "application/json" },
+//             body: JSON.stringify({ chat_id: process.env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true })
+//         });
+//         const data = await r.json();
+//         if (!data.ok) throw new Error(data.description || "Telegram API error");
+
+//         res.json({ ok: true });
+//     } catch (e) {
+//         res.status(500).json({ ok: false, error: e.message });
+//     }
+// });
 
 setInterval(() => {
     getCalendarEvents().catch(() => { });
