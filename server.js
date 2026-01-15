@@ -37,24 +37,31 @@ let cache = {
 const TTL_MS = 1000 * 60 * 3; // 3 минуты
 
 const EXTRA_BLOCK_RANGES = [
-    { month: 9, startDay: 9, endDay: 11 },
-    { month: 9, startDay: 17, endDay: 17 },
-    { month: 9, startDay: 19, endDay: 20 },
-    { month: 9, startDay: 25, endDay: 25 },
-    { month: 9, startDay: 27, endDay: 31 },
-    { month: 10, startDay: 2, endDay: 3 },
-    { month: 10, startDay: 6, endDay: 13 },
-    { month: 10, startDay: 14, endDay: 19 },
-    { month: 10, startDay: 21, endDay: 31 },
-    { month: 11, startDay: 1, endDay: 3 },
-    { month: 11, startDay: 4, endDay: 14 },
-    { month: 11, startDay: 15, endDay: 31 },
+    // { month: 9, startDay: 9, endDay: 11 },
+    // { month: 9, startDay: 17, endDay: 17 },
+    // { month: 9, startDay: 19, endDay: 20 },
+    // { month: 9, startDay: 25, endDay: 25 },
+    // { month: 9, startDay: 27, endDay: 31 },
+    // { month: 10, startDay: 2, endDay: 3 },
+    // { month: 10, startDay: 6, endDay: 13 },
+    // { month: 10, startDay: 14, endDay: 19 },
+    // { month: 10, startDay: 21, endDay: 31 },
+    // { month: 11, startDay: 1, endDay: 3 },
+    // { month: 11, startDay: 4, endDay: 14 },
+    // { month: 11, startDay: 15, endDay: 31 },
+    
+    { month: 0, startDay: 1, endDay: 2 },
+    { month: 0, startDay: 5, endDay: 7 },
+    { month: 0, startDay: 9, endDay: 12 },
+    { month: 0, startDay: 13, endDay: 15 },
+    // { month: 0, startDay: 16, endDay: 19 },
 ];
 
 // Генерация событий из ручных диапазонов
 function buildManualEvents() {
     const now = new Date();
     const year = now.getFullYear(); // "этого года"
+    // console.log('year', year)
 
     return EXTRA_BLOCK_RANGES.map((r, idx) => {
         const start = new Date(Date.UTC(year, r.month, r.startDay, 0, 0, 0));
