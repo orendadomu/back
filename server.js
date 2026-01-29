@@ -54,7 +54,10 @@ const EXTRA_BLOCK_RANGES = [
     { month: 0, startDay: 5, endDay: 7 },
     { month: 0, startDay: 9, endDay: 12 },
     { month: 0, startDay: 13, endDay: 15 },
-    // { month: 0, startDay: 16, endDay: 19 },
+    { month: 0, startDay: 16, endDay: 18 },
+    { month: 0, startDay: 20, endDay: 26 },
+    { month: 0, startDay: 27, endDay: 28 },
+    { month: 0, startDay: 30, endDay: 31 },
 ];
 
 // Генерация событий из ручных диапазонов
