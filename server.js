@@ -49,7 +49,6 @@ const EXTRA_BLOCK_RANGES = [
     // { month: 11, startDay: 1, endDay: 3 },
     // { month: 11, startDay: 4, endDay: 14 },
     // { month: 11, startDay: 15, endDay: 31 },
-    
     { month: 0, startDay: 1, endDay: 2 },
     { month: 0, startDay: 5, endDay: 7 },
     { month: 0, startDay: 9, endDay: 12 },
@@ -60,7 +59,9 @@ const EXTRA_BLOCK_RANGES = [
     { month: 0, startDay: 30, endDay: 31 },
     { month: 1, startDay: 4, endDay: 5 },
     { month: 1, startDay: 6, endDay: 8 },
-    { month: 1, startDay: 9, endDay: 10 }
+    { month: 1, startDay: 9, endDay: 10 },
+    { month: 1, startDay: 14, endDay: 16 },
+    { month: 1, startDay: 17, endDay: 18 }
 ];
 
 // Генерация событий из ручных диапазонов
@@ -72,6 +73,9 @@ function buildManualEvents() {
     return EXTRA_BLOCK_RANGES.map((r, idx) => {
         const start = new Date(Date.UTC(year, r.month, r.startDay, 0, 0, 0));
         const end = new Date(Date.UTC(year, r.month, r.endDay, 0, 0, 0));
+
+        // console.log('start', start)
+        // console.log('end', end)
 
         return {
             uid: `manual-${year}-${idx}`,
