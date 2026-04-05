@@ -21,6 +21,8 @@ app.use(cors());
 
 const ICS_URL = `https://www.airbnb.com.ua/calendar/ical/${process.env.ICS_KEY}`;
 
+console.log('ICS_URL', ICS_URL)
+
 const keepAliveHttp = new http.Agent({ keepAlive: true, maxSockets: 50 });
 const keepAliveHttps = new https.Agent({ keepAlive: true, maxSockets: 50 });
 
@@ -37,18 +39,6 @@ let cache = {
 const TTL_MS = 1000 * 60 * 3; // 3 минуты
 
 const EXTRA_BLOCK_RANGES = [
-    // { month: 9, startDay: 9, endDay: 11 },
-    // { month: 9, startDay: 17, endDay: 17 },
-    // { month: 9, startDay: 19, endDay: 20 },
-    // { month: 9, startDay: 25, endDay: 25 },
-    // { month: 9, startDay: 27, endDay: 31 },
-    // { month: 10, startDay: 2, endDay: 3 },
-    // { month: 10, startDay: 6, endDay: 13 },
-    // { month: 10, startDay: 14, endDay: 19 },
-    // { month: 10, startDay: 21, endDay: 31 },
-    // { month: 11, startDay: 1, endDay: 3 },
-    // { month: 11, startDay: 4, endDay: 14 },
-    // { month: 11, startDay: 15, endDay: 31 },
     { month: 0, startDay: 1, endDay: 2 },
     { month: 0, startDay: 5, endDay: 7 },
     { month: 0, startDay: 9, endDay: 12 },
@@ -71,6 +61,7 @@ const EXTRA_BLOCK_RANGES = [
     { month: 2, startDay: 14, endDay: 17 },
     { month: 2, startDay: 20, endDay: 24 },
     { month: 2, startDay: 27, endDay: 30 },
+    { month: 3, startDay: 2, endDay: 6 },
 ];
 
 // Генерация событий из ручных диапазонов
@@ -129,6 +120,14 @@ async function fetchIcs({ useValidators = true } = {}) {
     };
 }
 
+function formatYmd(date) {
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(date.getUTCDate()).padStart(2, "0");
+    console.log('check date', `${y}-${m}-${d}`)
+    return `${y}-${m}-${d}`;
+}
+
 // Единая функция: вернёт events из кэша или обновит его
 async function getCalendarEvents() {
     const now = Date.now();
@@ -163,6 +162,8 @@ async function getCalendarEvents() {
                             uid: ev.uid,
                             start: ev.start, // ISO Date
                             end: ev.end,
+                            // start: formatYmd(ev.start),
+                            // end: formatYmd(ev.end),
                             summary: ev.summary || "Booking",
                         });
                     }
