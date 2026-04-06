@@ -1,27 +1,21 @@
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
-const bodyParser = require('body-parser');
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
 const ical = require("node-ical");
-const axios = require("axios")
+const axios = require("axios");
+const http = require("http");
+const https = require("https");
+require("dotenv").config();
 
-const http = require("http")
-const https = require("https")
-
-require('dotenv').config()
-
-
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT || 3001;
+const ICS_URL = `https://www.airbnb.com.ua/calendar/ical/${process.env.ICS_KEY}`;
+const CALENDAR_TZ = "Europe/Kyiv";
+const TTL_MS = 1000 * 60 * 3;
 
 const app = express();
-app.use(bodyParser.json()); // application/json - body
-// app.use(express.urlencoded({ extended: false })); // forms body
-app.use(express.static('public'))
+app.use(bodyParser.json());
+app.use(express.static("public"));
 app.use(cors());
-
-const ICS_URL = `https://www.airbnb.com.ua/calendar/ical/${process.env.ICS_KEY}`;
-
-console.log('ICS_URL', ICS_URL)
 
 const keepAliveHttp = new http.Agent({ keepAlive: true, maxSockets: 50 });
 const keepAliveHttps = new https.Agent({ keepAlive: true, maxSockets: 50 });
@@ -31,185 +25,244 @@ let cache = {
     lastModified: null,
     parsed: null,
     raw: null,
-    // когда кэш истекает
     expiresAt: 0,
-    // чтобы не дублировать одновременные fetch'и
     inFlight: null,
 };
-const TTL_MS = 1000 * 60 * 3; // 3 минуты
 
 const EXTRA_BLOCK_RANGES = [
-    { month: 0, startDay: 1, endDay: 2 },
-    { month: 0, startDay: 5, endDay: 7 },
-    { month: 0, startDay: 9, endDay: 12 },
-    { month: 0, startDay: 13, endDay: 15 },
-    { month: 0, startDay: 16, endDay: 18 },
-    { month: 0, startDay: 20, endDay: 26 },
-    { month: 0, startDay: 27, endDay: 28 },
-    { month: 0, startDay: 30, endDay: 31 },
-    { month: 1, startDay: 4, endDay: 5 },
-    { month: 1, startDay: 6, endDay: 8 },
-    { month: 1, startDay: 9, endDay: 10 },
-    { month: 1, startDay: 14, endDay: 16 },
-    { month: 1, startDay: 17, endDay: 18 },
-    { month: 1, startDay: 17, endDay: 18 },
-    { month: 1, startDay: 20, endDay: 22 },
-    { month: 1, startDay: 27, endDay: 29 },
-    { month: 2, startDay: 1, endDay: 3 },
-    { month: 2, startDay: 6, endDay: 8 },
-    { month: 2, startDay: 12, endDay: 13 },
-    { month: 2, startDay: 14, endDay: 17 },
-    { month: 2, startDay: 20, endDay: 24 },
-    { month: 2, startDay: 27, endDay: 30 },
-    { month: 3, startDay: 2, endDay: 6 },
+    { month: 0, startDay: 1, endDay: 1 },
+    { month: 0, startDay: 5, endDay: 6 },
+    { month: 0, startDay: 9, endDay: 11 },
+    { month: 0, startDay: 13, endDay: 14 },
+    { month: 0, startDay: 16, endDay: 17 },
+    { month: 0, startDay: 20, endDay: 25 },
+    { month: 0, startDay: 27, endDay: 27 },
+    { month: 0, startDay: 30, endDay: 30 },
+    { month: 1, startDay: 4, endDay: 4 },
+    { month: 1, startDay: 6, endDay: 7 },
+    { month: 1, startDay: 9, endDay: 9 },
+    { month: 1, startDay: 14, endDay: 15 },
+    { month: 1, startDay: 17, endDay: 17 },
+    { month: 1, startDay: 20, endDay: 21 },
+    { month: 1, startDay: 27, endDay: 28 },
+    { month: 2, startDay: 1, endDay: 2 },
+    { month: 2, startDay: 6, endDay: 7 },
+    { month: 2, startDay: 12, endDay: 12 },
+    { month: 2, startDay: 14, endDay: 16 },
+    { month: 2, startDay: 20, endDay: 23 },
+    { month: 2, startDay: 27, endDay: 29 },
+    { month: 3, startDay: 2, endDay: 5 },
 ];
 
-// Генерация событий из ручных диапазонов
-function buildManualEvents() {
-    const now = new Date();
-    const year = now.getFullYear(); // "этого года"
-    // console.log('year', year)
-
-    return EXTRA_BLOCK_RANGES.map((r, idx) => {
-        const start = new Date(Date.UTC(year, r.month, r.startDay, 0, 0, 0));
-        const end = new Date(Date.UTC(year, r.month, r.endDay, 0, 0, 0));
-
-        // console.log('start', start)
-        // console.log('end', end)
-
-        return {
-            uid: `manual-${year}-${idx}`,
-            start,
-            end,
-            summary: "Manual block",
-        };
+function ymdFormatter(timeZone = CALENDAR_TZ) {
+    return new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
     });
 }
 
+const kyivYmd = ymdFormatter(CALENDAR_TZ);
+
+function toYmdInTz(date, formatter = kyivYmd) {
+    return formatter.format(date); // YYYY-MM-DD
+}
+
+function addDaysToYmd(ymd, days) {
+    const [y, m, d] = ymd.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + days);
+    return dt.toISOString().slice(0, 10);
+}
+
+function expandDateRange(startYmd, endYmdInclusive) {
+    const result = [];
+    let current = startYmd;
+
+    while (current <= endYmdInclusive) {
+        result.push(current);
+        current = addDaysToYmd(current, 1);
+    }
+
+    return result;
+}
+
+function getCurrentYearInKyiv() {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Kyiv",
+        year: "numeric",
+    }).formatToParts(new Date());
+
+    return Number(parts.find((p) => p.type === "year").value);
+}
+
+function buildManualEvents() {
+    const year = getCurrentYearInKyiv();
+
+    return EXTRA_BLOCK_RANGES
+        .map((r, idx) => {
+            const month = String(r.month + 1).padStart(2, "0");
+            const startDay = String(r.startDay).padStart(2, "0");
+            const endDay = String(r.endDay).padStart(2, "0");
+
+            const startDate = `${year}-${month}-${startDay}`;
+            const endDateInclusive = `${year}-${month}-${endDay}`;
+            const endDateExclusive = addDaysToYmd(endDateInclusive, 1);
+
+            if (endDateInclusive < startDate) return null;
+
+            return {
+                uid: `manual-${year}-${idx}`,
+                summary: "Manual block",
+                startDate,
+                endDateExclusive,
+                endDateInclusive,
+                blockedDates: expandDateRange(startDate, endDateInclusive),
+            };
+        })
+        .filter(Boolean);
+}
 
 async function fetchIcs({ useValidators = true } = {}) {
     const headers = {
-        "Accept": "text/calendar, text/plain; q=0.9, */*; q=0.8",
+        Accept: "text/calendar, text/plain; q=0.9, */*; q=0.8",
         "User-Agent": "ical-fetcher/1.0",
     };
-    if (useValidators && cache.etag) headers["If-None-Match"] = cache.etag;
-    if (useValidators && cache.lastModified) headers["If-Modified-Since"] = cache.lastModified;
+
+    if (useValidators && cache.etag) {
+        headers["If-None-Match"] = cache.etag;
+    }
+    if (useValidators && cache.lastModified) {
+        headers["If-Modified-Since"] = cache.lastModified;
+    }
 
     const resp = await axios.get(ICS_URL, {
         responseType: "arraybuffer",
-        timeout: 3000, // не даём виснуть
+        timeout: 5000,
         headers,
         httpAgent: keepAliveHttp,
         httpsAgent: keepAliveHttps,
-        // axios сам распакует gzip/deflate
         decompress: true,
-        validateStatus: s => (s >= 200 && s < 300) || s === 304,
+        validateStatus: (s) => (s >= 200 && s < 300) || s === 304,
     });
 
     if (resp.status === 304 && cache.raw) {
-        // не изменилось — используем прежнее тело
-        return { body: cache.raw, etag: cache.etag, lastModified: cache.lastModified, status: 304 };
+        return {
+            body: cache.raw,
+            etag: cache.etag,
+            lastModified: cache.lastModified,
+            status: 304,
+        };
     }
 
-    const body = Buffer.from(resp.data).toString("utf8");
     return {
-        body,
+        body: Buffer.from(resp.data).toString("utf8"),
         etag: resp.headers.etag || null,
         lastModified: resp.headers["last-modified"] || null,
         status: resp.status,
     };
 }
 
-function formatYmd(date) {
-    const y = date.getUTCFullYear();
-    const m = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const d = String(date.getUTCDate()).padStart(2, "0");
-    console.log('check date', `${y}-${m}-${d}`)
-    return `${y}-${m}-${d}`;
+function normalizeEvent(ev) {
+    if (!ev || ev.type !== "VEVENT" || !ev.start || !ev.end) {
+        return null;
+    }
+
+    // Нормализуем в единую таймзону объекта
+    const startDate = toYmdInTz(ev.start);
+    const endDateExclusive = toYmdInTz(ev.end);
+
+    // В iCal checkout день обычно НЕ должен блокироваться
+    const endDateInclusive = addDaysToYmd(endDateExclusive, -1);
+
+    // Защита от кривых данных
+    if (endDateInclusive < startDate) {
+        return null;
+    }
+
+    return {
+        uid: ev.uid || `${startDate}-${endDateExclusive}`,
+        summary: ev.summary || "Booking",
+        startDate,
+        endDateExclusive,
+        endDateInclusive,
+        blockedDates: expandDateRange(startDate, endDateInclusive),
+    };
 }
 
-// Единая функция: вернёт events из кэша или обновит его
 async function getCalendarEvents() {
     const now = Date.now();
 
-    // Тёплый кэш?
     if (cache.parsed && now < cache.expiresAt) {
         return cache.parsed;
     }
 
-    // Один fetch на всех параллельных запросах
     if (!cache.inFlight) {
         cache.inFlight = (async () => {
-            // Сначала пробуем валидаторы (дёшево)
             let data;
+
             try {
                 data = await fetchIcs({ useValidators: true });
             } catch (e) {
-                // Если сеть упала, но есть старый кэш — вернём его
                 if (cache.parsed) return cache.parsed;
                 throw e;
             }
 
-            // Обновляем кэш, если новое тело
             if (data.status !== 304) {
                 const parsedIcs = ical.parseICS(data.body);
                 const events = [];
 
-                for (const k in parsedIcs) {
-                    const ev = parsedIcs[k];
-                    if (ev?.type === "VEVENT") {
-                        events.push({
-                            uid: ev.uid,
-                            start: ev.start, // ISO Date
-                            end: ev.end,
-                            // start: formatYmd(ev.start),
-                            // end: formatYmd(ev.end),
-                            summary: ev.summary || "Booking",
-                        });
-                    }
+                for (const key in parsedIcs) {
+                    const normalized = normalizeEvent(parsedIcs[key]);
+                    if (normalized) events.push(normalized);
                 }
 
                 const manualEvents = buildManualEvents();
 
-                // Просто склеиваем и сортируем по времени начала
                 const mergedEvents = [...events, ...manualEvents].sort(
                     (a, b) => a.start - b.start
                 );
 
-                cache = {
-                    ...cache,
-                    etag: data.etag,
-                    lastModified: data.lastModified,
-                    // parsed: events,
-                    parsed: mergedEvents,
-                    raw: data.body,
-                    expiresAt: now + TTL_MS,
-                    inFlight: null,
-                };
+                cache.etag = data.etag;
+                cache.lastModified = data.lastModified;
+                cache.parsed = mergedEvents;
+                cache.raw = data.body;
+                cache.expiresAt = now + TTL_MS;
             } else {
-                // Только продлеваем TTL
                 cache.expiresAt = now + TTL_MS;
             }
+
             return cache.parsed;
-        })();
+        })()
+            .catch((err) => {
+                throw err;
+            })
+            .finally(() => {
+                cache.inFlight = null;
+            });
     }
 
-    return cache.inFlight.finally(() => {
-        // сбросим ссылку на промис, когда закончится
-        cache.inFlight = null;
-    });
+    return cache.inFlight;
 }
 
-// Роут без next() после ответа
 app.get("/api/getCalendarEvents", async (req, res) => {
     const t0 = process.hrtime.bigint();
+
     try {
         const events = await getCalendarEvents();
-        res.set("Cache-Control", "public, max-age=60"); // клиенту тоже можно кэшировать минуту
-        res.status(200).json({ data: events });
+
+        // Для фронта сразу готовый flat-массив всех занятых дней
+        const blockedDates = [...new Set(events.flatMap((e) => e.blockedDates))].sort();
+
+        res.set("Cache-Control", "public, max-age=60");
+        res.status(200).json({
+            data: events,
+            blockedDates,
+            timeZone: CALENDAR_TZ,
+        });
     } catch (err) {
         console.error("getCalendarEvents error:", err?.message || err);
-        // быстрый фейл вместо 10-сек зависания
         res.status(504).json({ error: "Upstream timeout or fetch error" });
     } finally {
         const t1 = process.hrtime.bigint();
@@ -217,39 +270,10 @@ app.get("/api/getCalendarEvents", async (req, res) => {
     }
 });
 
-// app.post("/api/send-phone", async (req, res) => {
-//     try {
-//         const { phone, extra = "" } = req.body || {};
-//         const normalized = String(phone || "").replace(/[^\d+]/g, "");
-//         if (!/^\+?\d{10,15}$/.test(normalized)) {
-//             return res.status(400).json({ ok: false, error: "Invalid phone format" });
-//         }
+getCalendarEvents().catch((e) => {
+    console.error("Initial warmup failed:", e?.message || e);
+});
 
-//         const text = [
-//             "📲 Новая заявка с сайта",
-//             `• Телефон: ${normalized}`,
-//             extra ? `• Комментарий: ${String(extra).slice(0, 500)}` : "",
-//             `• Время: ${new Date().toISOString()}`
-//         ].filter(Boolean).join("\n");
-
-//         const r = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-//             method: "POST",
-//             headers: { "Content-Type": "application/json" },
-//             body: JSON.stringify({ chat_id: process.env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true })
-//         });
-//         const data = await r.json();
-//         if (!data.ok) throw new Error(data.description || "Telegram API error");
-
-//         res.json({ ok: true });
-//     } catch (e) {
-//         res.status(500).json({ ok: false, error: e.message });
-//     }
-// });
-
-setInterval(() => {
-    getCalendarEvents().catch(() => { });
-}, 10 * 60 * 1000);
-
-const expressServer = app.listen(PORT, (error) => {
-    error ? error : console.log(`listening port ${PORT}`)
-})
+app.listen(PORT, () => {
+    console.log(`listening port ${PORT}`);
+});
