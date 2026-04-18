@@ -54,7 +54,7 @@ const EXTRA_BLOCK_RANGES = [
     { month: 3, startDay: 2, endDay: 5 },
     { month: 3, startDay: 7, endDay: 7 },
     { month: 3, startDay: 10, endDay: 13 },
-    { month: 3, startDay: 15, endDay: 15 },
+    { month: 3, startDay: 15, endDay: 19 },
 ];
 
 function ymdFormatter(timeZone = CALENDAR_TZ) {
