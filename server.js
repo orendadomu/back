@@ -29,36 +29,7 @@ let cache = {
     inFlight: null,
 };
 
-const EXTRA_BLOCK_RANGES = [
-    { month: 0, startDay: 1, endDay: 1 },
-    { month: 0, startDay: 5, endDay: 6 },
-    { month: 0, startDay: 9, endDay: 11 },
-    { month: 0, startDay: 13, endDay: 14 },
-    { month: 0, startDay: 16, endDay: 17 },
-    { month: 0, startDay: 20, endDay: 25 },
-    { month: 0, startDay: 27, endDay: 27 },
-    { month: 0, startDay: 30, endDay: 30 },
-    { month: 1, startDay: 4, endDay: 4 },
-    { month: 1, startDay: 6, endDay: 7 },
-    { month: 1, startDay: 9, endDay: 9 },
-    { month: 1, startDay: 14, endDay: 15 },
-    { month: 1, startDay: 17, endDay: 17 },
-    { month: 1, startDay: 20, endDay: 21 },
-    { month: 1, startDay: 27, endDay: 28 },
-    { month: 2, startDay: 1, endDay: 2 },
-    { month: 2, startDay: 6, endDay: 7 },
-    { month: 2, startDay: 12, endDay: 12 },
-    { month: 2, startDay: 14, endDay: 16 },
-    { month: 2, startDay: 20, endDay: 23 },
-    { month: 2, startDay: 27, endDay: 29 },
-    { month: 3, startDay: 2, endDay: 5 },
-    { month: 3, startDay: 7, endDay: 7 },
-    { month: 3, startDay: 10, endDay: 13 },
-    { month: 3, startDay: 15, endDay: 19 },
-    { month: 3, startDay: 24, endDay: 27 },
-    { month: 3, startDay: 29, endDay: 29 },
-    { month: 4, startDay: 1, endDay: 17 },
-];
+const EXTRA_BLOCK_RANGES = []
 
 function ymdFormatter(timeZone = CALENDAR_TZ) {
     return new Intl.DateTimeFormat("en-CA", {
